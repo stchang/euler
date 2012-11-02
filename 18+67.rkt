@@ -1,23 +1,65 @@
 #lang racket
 
-;; max-tri : [ListOf [ListOf Number]] -> Number
+;; ----------------------------------------------------------------------------
+;; top-down
+
+;; max-tri-route : [ListOf [ListOf Number]] -> Number
 ;; The triangle must have at least one number 
 ;; (ie, the input is at least a non-empty list of a non-empty list).
 ;; Each subsequent list (ie "row") must have one more element than the previous.
-(define (max-tri tri)
+(define (max-tri-route tri)
   (if (null? (rest tri))
       (apply max (first tri))
-      (max-tri (cons (combine-two-rows (first tri) (second tri)) (rest (rest tri))))))
+      (max-tri-route 
+       (cons (combine-two-rows (first tri) (second tri)) 
+             (rest (rest tri))))))
 
 ;; combine-two-rows : [ListOf Number] [ListOf Number] -> [ListOf Number]
-;; row2 always has one more element than row1
+;; - row2 always has one more element than row1
+;; - produces list of length row2
 (define/match (combine-two-rows row1 row2)
-  [((list x) (list y z)) (list (+ x y) (+ x z))]
+  [((list x) (list y z)) 
+   (list (+ x y) (+ x z))]
   [((list-rest x rest1) (list-rest y z rest2)) 
    (define res (combine-two-rows rest1 (cons z rest2)))
    (cons (+ x y) (cons (max (+ x z) (first res)) (rest res)))])
 
+;; ----------------------------------------------------------------------------
+;; bottom-up
 
+(define (max-tri-route2 tri) (max-tri/bottom-up (reverse tri)))
+
+(define (max-tri/bottom-up tri)
+  (if (null? (rest tri))
+      (first (first tri))
+      (max-tri/bottom-up 
+       (cons (combine-two-rows/bottom-up (second tri) (first tri))
+             (rest (rest tri))))))
+
+;; row2 always has one more element than row1
+(define/match (combine-two-rows/bottom-up row1 row2)
+  [((list x) (list y z))
+   (list (+ x (max y z)))]
+  [((list-rest x rest1) (list-rest y z rest2))
+   (cons (+ x (max y z)) (combine-two-rows/bottom-up rest1 (cons z rest2)))])
+
+;; ----------------------------------------------------------------------------
+;; bottom-up, with foldl
+(define (max-tri-route3 tri)
+  (define rev-tri (reverse tri))
+  (first (foldl combine-two-rows/bottom-up (first rev-tri) (rest rev-tri))))
+
+;; ----------------------------------------------------------------------------
+;; bottom-up, with foldr1
+
+(define/match (foldr1 f lst)
+  [(_ (list x))           x                    ]
+  [(_ (list-rest x rest)) (f x (foldr1 f rest))])
+
+(define (max-tri-route4 tri) (first (foldr1 combine-two-rows/bottom-up tri)))
+
+
+  
 (module+ test
   (require rackunit)
   
@@ -49,9 +91,17 @@
   (define tri3
     (for/list ([line (in-lines (open-input-file "triangle.txt"))])
       (map string->number (string-split line))))
-  
-  (check-equal? (max-tri tri1) 23)
-  (check-equal? (max-tri tri2) 1074)
-  (check-equal? (max-tri tri3) 7273))
 
+  (check-true 
+   (= (max-tri-route  tri1) (max-tri-route2 tri1) 
+      (max-tri-route3 tri1) (max-tri-route4 tri1) 
+      23))
+  (check-true 
+   (= (max-tri-route  tri2) (max-tri-route2 tri2) 
+      (max-tri-route3 tri2) (max-tri-route4 tri2) 
+      1074))
+  (check-true
+   (= (max-tri-route  tri3) (max-tri-route2 tri3) 
+      (max-tri-route3 tri3) (max-tri-route4 tri3) 
+      7273)))
 
