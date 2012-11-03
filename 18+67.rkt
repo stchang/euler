@@ -1,19 +1,22 @@
 #lang racket
 
-;; ----------------------------------------------------------------------------
-;; top-down
+;; A Row is a [ListOf Number] where there is at least one number in the list.
 
-;; max-tri-route : [ListOf [ListOf Number]] -> Number
-;; The triangle must have at least one number 
-;; (ie, the input is at least a non-empty list of a non-empty list).
-;; Each subsequent list (ie "row") must have one more element than the previous.
+;; A Triangle is a [ListOf Row] 
+;;  where each row has one more number than the previous row.
+
+
+;; ----------------------------------------------------------------------------
+;; top-down solution
+
+;; max-tri-route : Triangle -> Number
 (define/match (max-tri-route tri)
   [((list single-row)) 
    (apply max single-row)]
   [((list-rest row1 row2 rest-rows))
    (max-tri-route (cons (process-row row1 row2) rest-rows))])
 
-;; process-row : [ListOf Number] [ListOf Number] -> [ListOf Number]
+;; process-row : Row Row -> Row
 ;; Takes a list of intermediate maximum values and a row,
 ;; and incorporates that row into the intermediate maximum calculations.
 ;; - new-row always has one more element than tmp-maxes
@@ -25,8 +28,9 @@
    (define res (process-row rest-maxes (cons z rest-row)))
    (cons (+ x y) (cons (max (+ x z) (first res)) (rest res)))])
 
+
 ;; ----------------------------------------------------------------------------
-;; bottom-up
+;; bottom-up solution
 
 (define (max-tri-route2 tri) (max-tri/bottom-up (reverse tri)))
 
@@ -43,14 +47,17 @@
   [((list-rest x rest-row) (list-rest y z rest-maxes))
    (cons (+ x (max y z)) (process-row/bottom-up rest-row (cons z rest-maxes)))])
 
+
 ;; ----------------------------------------------------------------------------
-;; bottom-up, with foldl
+;; bottom-up solution, with foldl
+
 (define (max-tri-route3 tri)
   (define rev-tri (reverse tri))
   (first (foldl process-row/bottom-up (first rev-tri) (rest rev-tri))))
 
+
 ;; ----------------------------------------------------------------------------
-;; bottom-up, with foldr1
+;; bottom-up solution, with foldr1
 
 (define/match (foldr1 f lst)
   [(_ (list x)) x]
