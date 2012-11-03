@@ -7,21 +7,22 @@
 ;; The triangle must have at least one number 
 ;; (ie, the input is at least a non-empty list of a non-empty list).
 ;; Each subsequent list (ie "row") must have one more element than the previous.
-(define (max-tri-route tri)
-  (if (null? (rest tri))
-      (apply max (first tri))
-      (max-tri-route 
-       (cons (combine-two-rows (first tri) (second tri)) 
-             (rest (rest tri))))))
+(define/match (max-tri-route tri)
+  [((list single-row)) 
+   (apply max single-row)]
+  [((list-rest row1 row2 rest-rows))
+   (max-tri-route (cons (process-row row1 row2) rest-rows))])
 
-;; combine-two-rows : [ListOf Number] [ListOf Number] -> [ListOf Number]
-;; - row2 always has one more element than row1
-;; - produces list of length row2
-(define/match (combine-two-rows row1 row2)
+;; process-row : [ListOf Number] [ListOf Number] -> [ListOf Number]
+;; Takes a list of intermediate maximum values and a row,
+;; and incorporates that row into the intermediate maximum calculations.
+;; - new-row always has one more element than tmp-maxes
+;; - produces list of length new-row
+(define/match (process-row tmp-maxes new-row)
   [((list x) (list y z)) 
    (list (+ x y) (+ x z))]
-  [((list-rest x rest1) (list-rest y z rest2)) 
-   (define res (combine-two-rows rest1 (cons z rest2)))
+  [((list-rest x rest-maxes) (list-rest y z rest-row)) 
+   (define res (process-row rest-maxes (cons z rest-row)))
    (cons (+ x y) (cons (max (+ x z) (first res)) (rest res)))])
 
 ;; ----------------------------------------------------------------------------
@@ -29,34 +30,33 @@
 
 (define (max-tri-route2 tri) (max-tri/bottom-up (reverse tri)))
 
-(define (max-tri/bottom-up tri)
-  (if (null? (rest tri))
-      (first (first tri))
-      (max-tri/bottom-up 
-       (cons (combine-two-rows/bottom-up (second tri) (first tri))
-             (rest (rest tri))))))
+(define/match (max-tri/bottom-up tri)
+  [((list (list the-max-route))) the-max-route]
+  [((list-rest row1 row2 rest-rows))
+   (max-tri/bottom-up (cons (process-row/bottom-up row2 row1) rest-rows))])
 
-;; row2 always has one more element than row1
-(define/match (combine-two-rows/bottom-up row1 row2)
+;; - tmp-maxes always has one more element than new-row
+;; - produces list of length new-row
+(define/match (process-row/bottom-up new-row tmp-maxes)
   [((list x) (list y z))
    (list (+ x (max y z)))]
-  [((list-rest x rest1) (list-rest y z rest2))
-   (cons (+ x (max y z)) (combine-two-rows/bottom-up rest1 (cons z rest2)))])
+  [((list-rest x rest-row) (list-rest y z rest-maxes))
+   (cons (+ x (max y z)) (process-row/bottom-up rest-row (cons z rest-maxes)))])
 
 ;; ----------------------------------------------------------------------------
 ;; bottom-up, with foldl
 (define (max-tri-route3 tri)
   (define rev-tri (reverse tri))
-  (first (foldl combine-two-rows/bottom-up (first rev-tri) (rest rev-tri))))
+  (first (foldl process-row/bottom-up (first rev-tri) (rest rev-tri))))
 
 ;; ----------------------------------------------------------------------------
 ;; bottom-up, with foldr1
 
 (define/match (foldr1 f lst)
-  [(_ (list x))           x                    ]
+  [(_ (list x)) x]
   [(_ (list-rest x rest)) (f x (foldr1 f rest))])
 
-(define (max-tri-route4 tri) (first (foldr1 combine-two-rows/bottom-up tri)))
+(define (max-tri-route4 tri) (first (foldr1 process-row/bottom-up tri)))
 
 
   
