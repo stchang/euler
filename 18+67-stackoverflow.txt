@@ -1,4 +1,4 @@
-For certain types of problems, laziness allows you to organize your solution in a nice, modular way, where you can first code as if you were generating every possible solution (even if there are infinite possibilities), and then separately test whether each solution is a valid solution. In a lazy language, such an algorithm would check only enough possible solutions to compute the final result and all the other possibilities are naturally not computed so it's as efficient as more complicated strategies like backtracking.
+For certain types of problems, laziness allows you to organize your solution in a nice, modular way, where you can first code as if you were generating every possible solution (even if there are infinite possibilities), and then separately write code to test whether a solution is a valid solution. In a lazy language, such an algorithm would check only enough possible solutions to compute the final result and all the other possibilities are naturally not computed so it's as efficient as more complicated strategies like backtracking.
 
 A canonical example is an algorithm to solve a sudoku puzzle (a google search will turn up plenty of examples). You may also be interested in a paper by John Hughes called "Why Functional Programming Matters".
 
@@ -27,7 +27,7 @@ We do this by incrementally computing the maximum total, one row at a time. A fu
        (max-tri-route (cons (process-row row1 row2) rest-rows))])
 
 
-I'm assuming a triangle is represented with a list of lists, where each sublist represents a row. We assume that the first row of the triangle represents our incrementally calculated totals. This function says that if there's only one row, then take the max of that row. Otherwise, call a process-row function with the first row (the totals so far) and the second row. The process-row function incorporates the second row into the computed maximums and might look something like this:
+I'm assuming a triangle is represented with a list of lists, where each sublist represents a row. We assume that the first row of the triangle represents our incrementally calculated totals. This function says that if there's only one row, then take the max of that row. Otherwise, call a process-row function with the first row (the totals so far) and the second row. The process-row function incorporates the second row into the intermediate totals and might look something like this:
 
     ;; process-row : Row Row -> Row
     ;; Takes a list of intermediate maximum values and a row, and incorporates
@@ -99,6 +99,6 @@ One final refinement. Why are we reversing the triangle, and then starting on th
 
     (define (max-tri-route4 tri) (first (foldr1 process-row/bottom-up tri)))
 
-With the foldr1 function and using our process-row/bottom-up function from before, our solution is now a one-line function. This is probably what the Haskell solution you saw looked like as well.
+Of course, the foldr1 function assumes that the list you give it has at least one element. With the foldr1 function and using our process-row/bottom-up function from before, our solution is now a one-line function. This is probably what the Haskell solution you saw looked like as well.
 
 For the full program with this code, see [here](https://github.com/stchang/euler/blob/master/18%2B67.rkt).
