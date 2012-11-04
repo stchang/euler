@@ -1,0 +1,104 @@
+For certain types of problems, laziness allows you to organize your solution in a nice, modular way, where you can first code as if you were generating every possible solution (even if there are infinite possibilities), and then separately test whether each solution is a valid solution. In a lazy language, such an algorithm would check only enough possible solutions to compute the final result and all the other possibilities are naturally not computed so it's as efficient as more complicated strategies like backtracking.
+
+A canonical example is an algorithm to solve a sudoku puzzle (a google search will turn up plenty of examples). You may also be interested in a paper by John Hughes called "Why Functional Programming Matters".
+
+Having said that, in this specific case, laziness won't help much. A dynamic-programming-style solution in either an eager or lazy language will work fine (and will look approximately the same).
+
+When solving a problem like this, it's often helpful to compute a naive solution first and then improve it. The naive solution would compute every possible total and then take the maximum. For the small triangle example, you would compute 3+7+2+8, 3+7+2+5, etc. but just writing that down reveals a possible improvement since 3+7+2 is repeated. Avoiding these kinds of repeated computations is precisely what dynamic programming does. A dynamic algorithm will calculate these intermediate results only once, and then re-use it multiple times.
+
+We do this by incrementally computing the maximum total, one row at a time. A function to compute the maximum total in this manner might look like this:
+
+(Note: You'll need to install the latest nightly build to run this Racket code.)
+
+    ;; A Row is a list of at least one number.
+
+    ;; A Triangle is a list of at least one Row,
+    ;;  where each row has one more number than the previous row.
+
+    ;; ----------------------------------------------------------------------------
+    ;; top-down solution
+
+    ;; max-tri-route : Triangle -> Number
+    ;; Computes the maximum total when moving from top of triangle to bottom.
+    (define/match (max-tri-route tri)
+      [((list a-single-row)) 
+       (apply max a-single-row)]
+      [((list-rest row1 row2 rest-rows))
+       (max-tri-route (cons (process-row row1 row2) rest-rows))])
+
+
+I'm assuming a triangle is represented with a list of lists, where each sublist represents a row. We assume that the first row of the triangle represents our incrementally calculated totals. This function says that if there's only one row, then take the max of that row. Otherwise, call a process-row function with the first row (the totals so far) and the second row. The process-row function incorporates the second row into the computed maximums and might look something like this:
+
+    ;; process-row : Row Row -> Row
+    ;; Takes a list of intermediate maximum values and a row, and incorporates
+    ;;  the given row into the intermediate values.
+    ;; - new-row always has one more element than tmp-maxes
+    ;; - produces list of length new-row
+    (define/match (process-row tmp-maxes new-row)
+      [((list x) (list y z)) 
+       (list (+ x y) (+ x z))]
+      [((list-rest x rest-maxes) (list-rest y z rest-row)) 
+       (define res (process-row rest-maxes (cons z rest-row)))
+       (cons (+ x y) (cons (max (+ x z) (first res)) (rest res)))])
+
+This function assumes that the second given row always has one more number than the first given row. If the given two rows have only one and two numbers respectively, then just add the number from the first row to each of the numbers in the second row. Otherwise, we compute the new intermediate totals by considering three numbers at a time: one from the first given row and the two adjacent numbers from the second given row. Of course, each number in the second given row (except the ends) has two adjacent numbers from the first row so we only want to take the greater one. For example, in the little triangle example, calling process-row on the first two rows produces the intermediate values 10 and 7. Then if process-row is called with 10 7 and the next row 2 4 6, it first considers 10 with 2 and 4, producing 12 and 14. But it also has to consider 7 with the 4 below. Since 7+4=11 is less than 14, the intermediate total that we keep is the 14. The resulting intermediate totals after incorporating the third row are 12 14 13.
+
+The solution above will efficiently produce the correct answer, even for the triangle in Problem 67. But it feels a little awkward, especially in the second part of process-row where we have to consider the overlapping cases. Let's see if we can make the solution better.
+
+Take # 2:
+
+In the first solution, since we process the triangle top down, our list of intermediate totals grows with each row. But then at the end we have to compute the maximum over all the intermediate values. But nothing says we have to process the triangle from the top down. Since we are only interested in the total, we would get the same answer going bottom-up. Let's see what this would look like:
+
+    ;; ----------------------------------------------------------------------------
+    ;; bottom-up solution
+
+    (define (max-tri-route2 tri) (max-tri/bottom-up (reverse tri)))
+
+    ;; Computes total starting from bottom row.
+    (define/match (max-tri/bottom-up tri)
+      [((list (list the-max-total))) 
+       the-max-total]
+      [((list-rest row1 row2 rest-rows))
+       (max-tri/bottom-up (cons (process-row/bottom-up row2 row1) rest-rows))])
+
+    ;; - tmp-maxes always has one more element than new-row
+    ;; - produces list of length new-row
+    (define/match (process-row/bottom-up new-row tmp-maxes)
+      [((list x) (list y z))
+       (list (+ x (max y z)))]
+      [((list-rest x rest-row) (list-rest y z rest-maxes))
+       (cons (+ x (max y z)) (process-row/bottom-up rest-row (cons z rest-maxes)))])
+
+With the bottom up approach, we just have one value at the end, the final answer. Also, process-row/bottom-up is simpler than process-row since we can just directly keep the greater of the two numbers now.
+
+However, we can do even better.
+
+Take # 3:
+
+This pattern of iterating over a list and accumulating intermediate values is common enough that there are built-in functions that do this: foldr and foldl. Each of these functions takes a list to traverse, an initial intermediate value, and a function that combines the next value in the list with the current intermediate value. But what's the combining function we need? It turns out that it's exactly our process-row function. Here's the solution with foldl:
+
+    ;; ----------------------------------------------------------------------------
+    ;; bottom-up, with foldl
+
+    (define (max-tri-route3 tri)
+      (define rev-tri (reverse tri))
+      (first (foldl process-row/bottom-up (first rev-tri) (rest rev-tri))))
+
+foldl starts at the left of the list, but since we want to go bottom-up, we first reverse the list. We use the first (ie bottom) row as the initial intermediate values and the rest of the rows as the triangle. When we are done, we'll have a list of one value, the answer.
+
+Take # 4:
+
+One final refinement. Why are we reversing the triangle, and then starting on the left. Why don't we just start on the right with foldr, using the last row as the initial accumulator? The problem with foldr is that we have to explicitly specify an initial accumulator but some languages like Haskell have a built-in function foldr1 that automatically uses the last element of the list as the initial intermediate value. Racket doesnt have it but we can easily implement it.
+
+    ;; ----------------------------------------------------------------------------
+    ;; bottom-up, with foldr1
+
+    (define/match (foldr1 f lst)
+      [(_ (list x)) x]
+      [(_ (list-rest x rest)) (f x (foldr1 f rest))])
+
+    (define (max-tri-route4 tri) (first (foldr1 process-row/bottom-up tri)))
+
+With the foldr1 function and using our process-row/bottom-up function from before, our solution is now a one-line function. This is probably what the Haskell solution you saw looked like as well.
+
+For the full program with this code, see [here](https://github.com/stchang/euler/blob/master/18%2B67.rkt).
