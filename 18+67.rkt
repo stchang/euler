@@ -1,24 +1,24 @@
 #lang racket
 
-;; A Row is a [ListOf Number] where there is at least one number in the list.
+;; A Row is a list of at least one number.
 
-;; A Triangle is a [ListOf Row] 
+;; A Triangle is a list of at least one Row, 
 ;;  where each row has one more number than the previous row.
-
 
 ;; ----------------------------------------------------------------------------
 ;; top-down solution
 
 ;; max-tri-route : Triangle -> Number
+;; Computes the maximum total when moving from top of triangle to bottom.
 (define/match (max-tri-route tri)
-  [((list single-row)) 
-   (apply max single-row)]
+  [((list a-single-row)) 
+   (apply max a-single-row)]
   [((list-rest row1 row2 rest-rows))
    (max-tri-route (cons (process-row row1 row2) rest-rows))])
 
 ;; process-row : Row Row -> Row
-;; Takes a list of intermediate maximum values and a row,
-;; and incorporates that row into the intermediate maximum calculations.
+;; Takes a list of intermediate maximum values and a row, and incorporates
+;;  the given row into the intermediate values.
 ;; - new-row always has one more element than tmp-maxes
 ;; - produces list of length new-row
 (define/match (process-row tmp-maxes new-row)
@@ -34,8 +34,10 @@
 
 (define (max-tri-route2 tri) (max-tri/bottom-up (reverse tri)))
 
+;; Computes total starting from bottom row.
 (define/match (max-tri/bottom-up tri)
-  [((list (list the-max-route))) the-max-route]
+  [((list (list the-max-total))) 
+   the-max-total]
   [((list-rest row1 row2 rest-rows))
    (max-tri/bottom-up (cons (process-row/bottom-up row2 row1) rest-rows))])
 
